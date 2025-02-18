@@ -40,7 +40,7 @@ Colour::~Colour() {
 
 // ----- Setters -----
 
-bool Colour::SetR(int r) {
+bool Colour::setR(int r) {
     if (0 > r || r > 255) {
         return false;
     }
@@ -49,7 +49,7 @@ bool Colour::SetR(int r) {
     return true; 
 }
 
-bool Colour::SetG(int g) {
+bool Colour::setG(int g) {
     if (0 > g || g > 255) {
         return false;
     }
@@ -58,7 +58,7 @@ bool Colour::SetG(int g) {
     return true; 
 }
 
-bool Colour::SetB(int b) {
+bool Colour::setB(int b) {
     if (0 > b || b > 255) {
         return false;
     }
@@ -67,7 +67,7 @@ bool Colour::SetB(int b) {
     return true; 
 }
 
-bool Colour::SetA(int a) {
+bool Colour::setA(int a) {
     if (0 > a || a > 255) {
         return false;
     }
@@ -79,19 +79,19 @@ bool Colour::SetA(int a) {
 
 // ----- Getters -----
 
-int Colour::GetR() {
+int Colour::getR() {
     return this->m_r;
 }
 
-int Colour::GetG() {
+int Colour::getG() {
     return this->m_g;
 }
 
-int Colour::GetB() {
+int Colour::getB() {
     return this->m_b;
 }
 
-int Colour::GetA() {
+int Colour::getA() {
     return this->m_a;
 }
 

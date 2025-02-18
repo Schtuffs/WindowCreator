@@ -1,8 +1,44 @@
 #include "WindowManager.h"
 
-// Creation / Destruction
+// Holds if a window has been created
+bool WindowManager::s_initialized = false;
+unsigned short WindowManager::s_totalWindows = 0;
+
+// ----- OpenGL ----- Functions -----
+
+// Initialized OpenGL
+void WindowManager::init() {
+    if (WindowManager::s_initialized) {
+        return;
+    }
+    // Init glfw
+    if (!glfwInit()) {
+        std::cout << "Could not initialize glfw..." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // GLFW v3.3, CORE
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // Tracks OpenGL initialized
+    WindowManager::s_initialized = true;
+}
+
+// Closes OpenGL
+void WindowManager::close() {
+    glfwTerminate();
+}
+
+
+
+// ----- Creation ----- Destruction -----
 
 WindowManager::WindowManager(const std::string& title) {
+    // Initialized glfw
+    WindowManager::init();
+
     // Create the window
     this->m_window = glfwCreateWindow(WINDOW_SIZE_X, WINDOW_SIZE_Y, title.c_str(), NULL, NULL);
     if (this->m_window == nullptr) {
@@ -28,16 +64,26 @@ WindowManager::WindowManager(const std::string& title) {
     // Other variables
     this->m_prevTime = 0;
     this->m_frameTime = CLOCKS_PER_SEC / WINDOW_MAX_FPS;
+    s_totalWindows++;
 }
 
-bool WindowManager::IsCreated() {
+bool WindowManager::isCreated() {
     return this->m_created;
 }
 
 WindowManager::~WindowManager() {
+    // Tracks window removal
+    WindowManager::s_totalWindows--;
+
     // Free all alocated memory
     if (this->m_window != nullptr) {
         glfwDestroyWindow(this->m_window);
+    }
+
+    // If no windows left, close OpenGL and marks as uninitialized
+    if (WindowManager::s_totalWindows == 0) {
+        WindowManager::close();
+        WindowManager::s_initialized = false;
     }
 }
 
@@ -45,64 +91,68 @@ WindowManager::~WindowManager() {
 
 // ----- Setters -----
 
-void WindowManager::SetBackground(Colour col) {
-    float r = col.GetR() * (1. / 255);
-    float g = col.GetG() * (1. / 255);
-    float b = col.GetB() * (1. / 255); 
-    float a = col.GetA() * (1. / 255);
+void WindowManager::setBackground(Colour col) {
+    float r = col.getR() * (1. / COLOUR_MAX);
+    float g = col.getG() * (1. / COLOUR_MAX);
+    float b = col.getB() * (1. / COLOUR_MAX); 
+    float a = col.getA() * (1. / COLOUR_MAX);
     glfwMakeContextCurrent(this->m_window);
     glClearColor(r, g, b, a);
 }
 
-void WindowManager::Add(Renderable& obj) {
+void WindowManager::add(Renderable& obj) {
     this->m_renderObjects.push_back(&obj);
 }
 
-// Callbacks
 
-void WindowManager::SetCallback(GLFWkeyfun callback) {
+
+// ----- Callbacks -----
+
+void WindowManager::setCallback(GLFWkeyfun callback) {
     glfwSetKeyCallback(this->m_window, callback);
 }
 
-void WindowManager::SetCallback(GLFWcursorposfun callback) {
+void WindowManager::setCallback(GLFWcursorposfun callback) {
     glfwSetCursorPosCallback(this->m_window, callback);
 }
 
-void WindowManager::SetCallback(GLFWmousebuttonfun callback) {
+void WindowManager::setCallback(GLFWmousebuttonfun callback) {
     glfwSetMouseButtonCallback(this->m_window, callback);
 }
 
-void WindowManager::SetCallback(GLFWcharfun callback) {
+void WindowManager::setCallback(GLFWcharfun callback) {
     glfwSetCharCallback(this->m_window, callback);
 }
 
-void WindowManager::SetCallback(GLFWframebuffersizefun callback) {
+void WindowManager::setCallback(GLFWframebuffersizefun callback) {
     glfwSetFramebufferSizeCallback(this->m_window, callback);
 }
 
-void WindowManager::SetCallback(GLFWwindowrefreshfun callback) {
+void WindowManager::setCallback(GLFWwindowrefreshfun callback) {
     glfwSetWindowRefreshCallback(this->m_window, callback);
 }
 
+
+
 // ----- Read -----
 
-bool WindowManager::ShouldClose() {
+bool WindowManager::shouldClose() {
     return glfwWindowShouldClose(this->m_window);
 }
 
-void WindowManager::Poll() {
+void WindowManager::poll() {
     glfwMakeContextCurrent(this->m_window);
     glfwPollEvents();
 }
 
-void WindowManager::Render() {
+void WindowManager::render() {
     // Check if render operation is needed
-    if (this->ShouldClose()) {
+    if (this->shouldClose()) {
         return;
     }
 
     // Check time since last frame
-    if (!this->HasFrameTimePassed()) {
+    if (!this->hasFrameTimePassed()) {
         return;
     }
     
@@ -117,7 +167,7 @@ void WindowManager::Render() {
     }
 }
 
-bool WindowManager::HasFrameTimePassed() {
+bool WindowManager::hasFrameTimePassed() {
     double current = clock();
     double deltaTime = this->m_frameTime - (double)(current - this->m_prevTime);
     if (0 >= deltaTime) {

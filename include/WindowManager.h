@@ -10,53 +10,62 @@
 
 class WindowManager {
 private:
+    // Holds values for opening/closing OpenGL
+    static bool s_initialized;
+    static unsigned short s_totalWindows;
+
     GLFWwindow* m_window;
     bool m_created;
 
     std::vector<Renderable*> m_renderObjects;
     double m_prevTime, m_frameTime;
 
+    // Initializes glfw
+    void init();
+    // Closes OpenGL
+    void close();
+
     // For rendering frames at defined frame rate
-    bool HasFrameTimePassed();
+    bool hasFrameTimePassed();
 
 public:
     // Creation/Destruction
     WindowManager(const std::string& title = "Window");
-    bool IsCreated();
+    bool isCreated();
     ~WindowManager();
 
     // Setters
 
     // Set background to specified colour
-    void SetBackground(Colour col);
+    void setBackground(Colour col);
 
     // Chooses callback overload based on passed param
 
     // Sets the key callback for the window
-    void SetCallback(GLFWkeyfun callback);
+    void setCallback(GLFWkeyfun callback);
     // Sets the cursor position callback for the window
-    void SetCallback(GLFWcursorposfun callback);
+    void setCallback(GLFWcursorposfun callback);
     // Sets the mouse button callback for the window
-    void SetCallback(GLFWmousebuttonfun callback);
+    void setCallback(GLFWmousebuttonfun callback);
     // Sets the character pressed callback for the window
-    void SetCallback(GLFWcharfun callback);
+    void setCallback(GLFWcharfun callback);
     // Sets the window resize callback for the window
-    void SetCallback(GLFWframebuffersizefun callback);
+    void setCallback(GLFWframebuffersizefun callback);
     // Sets the window refresh callback for the window
-    void SetCallback(GLFWwindowrefreshfun callback);
+    void setCallback(GLFWwindowrefreshfun callback);
 
     // Add a new drawable into the screen
-    void Add(Renderable& obj);
+    void add(Renderable& obj);
 
     // Required OpenGL functions for a window to function
 
     // Main function to check for looping
-    bool ShouldClose();
+    bool shouldClose();
 
     // Poll for actions on window
-    void Poll();
+    void poll();
 
     // Render window
-    void Render();
+    void render();
 };
 

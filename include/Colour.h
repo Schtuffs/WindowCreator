@@ -11,14 +11,14 @@ public:
     Colour(int r, int g, int b, int a = 255);
     ~Colour();
 
-    bool SetR(int r);
-    bool SetG(int g);
-    bool SetB(int b);
-    bool SetA(int a);
+    bool setR(int r);
+    bool setG(int g);
+    bool setB(int b);
+    bool setA(int a);
 
-    int GetR();
-    int GetG();
-    int GetB();
-    int GetA();
+    int getR();
+    int getG();
+    int getB();
+    int getA();
 };
 
