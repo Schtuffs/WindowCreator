@@ -1,5 +1,6 @@
 # Prerequisites
 *.d
+.ignore/
 
 # Compiled Object files
 *.slo
