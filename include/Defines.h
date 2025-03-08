@@ -11,7 +11,6 @@ constexpr int COLOUR_MAX          = 255;
 
 // Window Defines
 
-constexpr int WINDOW_MAX_FPS      = 60;
 constexpr int WINDOW_SIZE_X       = 800;
 constexpr int WINDOW_SIZE_Y       = 800;
 
