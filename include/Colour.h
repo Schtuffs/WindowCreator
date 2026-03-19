@@ -1,24 +1,14 @@
 #pragma once
 
+#include <cstdint>
+
 #include "Defines.h"
 
-class Colour {
-private:
-    unsigned char m_r, m_g, m_b, m_a;
-
-public:
-    Colour(int greyScale = COLOUR_DEFAULT);
-    Colour(int r, int g, int b, int a = 255);
-    ~Colour();
-
-    bool setR(int r);
-    bool setG(int g);
-    bool setB(int b);
-    bool setA(int a);
-
-    int getR();
-    int getG();
-    int getB();
-    int getA();
-};
+typedef struct Colour {
+    uint8_t r, g, b, a;
+    
+    Colour(uint8_t greyScale = COLOUR_DEFAULT);
+    Colour(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
+    ~Colour() = default;
+} Colour;
 

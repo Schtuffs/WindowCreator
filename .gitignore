@@ -1,6 +1,5 @@
 # Prerequisites
 *.d
-.ignore/
 
 # Compiled Object files
 *.slo
@@ -11,6 +10,12 @@
 # Precompiled Headers
 *.gch
 *.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
 
 # Compiled Dynamic libraries
 *.so
@@ -31,3 +36,10 @@
 *.exe
 *.out
 *.app
+
+# debug information files
+*.dwo
+
+# Extra
+build/
+winbuild/
