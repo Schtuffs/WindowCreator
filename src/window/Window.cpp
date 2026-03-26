@@ -1,10 +1,12 @@
-#include "Window.h"
+#include "window/Window.h"
 
 #include <chrono>
 #include <print>
 #include <thread>
 
-#include "WindowManager.h"
+#include "window/WindowManager.h"
+
+#define GET_CURRENT_TIME() std::chrono::nanoseconds(std::chrono::system_clock::now().time_since_epoch()).count()
 
 using namespace std::chrono_literals;
 
@@ -19,16 +21,16 @@ static std::vector<Window*> s_windows;
 
 // ----- Creation ----- Destruction -----
 
-Window::Window(const std::string& title) {
+Window::Window(const std::string& title, int width, int height) {
     // Add window to count
     WindowManager::add();
-    m_width = WINDOW_SIZE_X;
-    m_height = WINDOW_SIZE_Y;
+    m_width = width;
+    m_height = height;
 
     // Create the window
     this->m_window = glfwCreateWindow(m_width, m_height, title.c_str(), NULL, NULL);
     if (this->m_window == nullptr) {
-        std::println(stderr, "ERROR: Could not create window.");
+        std::println("Could not create window...");
         this->m_created = false;
 
         // Remove failed window
@@ -52,11 +54,12 @@ Window::Window(const std::string& title) {
 
     // Disable vsync
     glfwSwapInterval(0);
+
+    // Other window attributes
+    glfwSetWindowSizeLimits(m_window, GLFW_DONT_CARE, GLFW_DONT_CARE, GLFW_DONT_CARE, GLFW_DONT_CARE);
     
     // Other variables
-    this->m_prevTime = std::chrono::nanoseconds(std::chrono::system_clock::now().time_since_epoch()).count();
     this->m_frameTime = 0;
-    this->m_sizeChanged = false;
     this->m_closed = false;
 }
 
@@ -76,10 +79,14 @@ void Window::close() {
     }
 }
 
+
+
+// ----- Static -----
+
 void Window::await(const std::function<void(void)>& lambda) {
     // Force main thread only
     if (std::this_thread::get_id() != s_mainThread) {
-        std::println(stderr, "ERROR: Await must be called on the main thread.");
+        std::println(stderr, "ERROR: Await must be called on the main thread");
         return;
     }
     
@@ -101,6 +108,15 @@ void Window::await(const std::function<void(void)>& lambda) {
     }
 }
 
+Window& Window::find(const GLFWwindow* window) {
+    for (Window* w : s_windows) {
+        if (w->m_window == window) {
+            return *w;
+        }
+    }
+    throw std::string("ERROR: failed to find the window.");
+}
+
 
 
 // ----- Setters -----
@@ -111,6 +127,7 @@ Window& Window::setMain() {
     }
 
     s_mainWindow = this->m_window;
+    s_forceClose = false;
     return *this;
 }    
 
@@ -119,10 +136,10 @@ Window& Window::setBackground(Colour col) {
         return *this;
     }
 
-    float r = col.r * (1. / COLOUR_MAX);
-    float g = col.g * (1. / COLOUR_MAX);
-    float b = col.b * (1. / COLOUR_MAX); 
-    float a = col.a * (1. / COLOUR_MAX);
+    float r = col.r * (1. / Colour::MAX);
+    float g = col.g * (1. / Colour::MAX);
+    float b = col.b * (1. / Colour::MAX); 
+    float a = col.a * (1. / Colour::MAX);
     glfwMakeContextCurrent(this->m_window);
     glClearColor(r, g, b, a);
 
@@ -137,14 +154,23 @@ Window& Window::setSize(int width, int height) {
     // Change size variable
     m_width = width;
     m_height = height;
-    
-    // Get lock for allowing thread to update size
-    m_sizeLock.lock();
-    m_sizeChanged = true;
-    m_sizeLock.unlock();
+    m_resizedMutex.lock();
+    m_resized = true;
+    m_resizedMutex.unlock();
     
     return *this;
-}    
+}  
+
+Window& Window::setSize(int minWidth, int minHeight, int maxWidth, int maxHeight) {
+    if (m_window == nullptr) {
+        return *this;
+    }
+
+    // Change size variable
+    glfwSetWindowSizeLimits(m_window, minWidth, minHeight, maxWidth, maxHeight);
+    
+    return *this;
+}
 
 Window& Window::setTitle(const std::string& title) {
     if (m_window == nullptr) {
@@ -156,7 +182,7 @@ Window& Window::setTitle(const std::string& title) {
 }
 
 Window& Window::add(Renderable& obj) {
-    this->m_renderObjects.push_back(&obj);
+    this->m_renderObjects.push_back(obj);
     return *this;
 }
 
@@ -170,6 +196,20 @@ bool Window::remove(Renderable& obj) {
     // TODO - add removal logic
     (void)obj;
     return false;
+}
+
+
+
+// ----- Getters -----
+
+Window& Window::getSize(int& width, int& height) {
+    width = m_width;
+    height = m_height;
+    return *this;
+}
+
+std::vector<Renderable> Window::renderables() {
+    return m_renderObjects;
 }
 
 
@@ -210,7 +250,15 @@ Window& Window::setCallback(GLFWwindowrefreshfun callback) {
 
 // ----- Update -----
 
-void Window::run(uint64_t frames, bool upsMatchFps) {
+void Window::run(const std::function<void(void)>& lambda) {
+    run(DEFAULT_FRAMERATE, true, lambda);
+}
+
+void Window::run(bool upsMatchFps, const std::function<void(void)>& lambda) {
+    run(DEFAULT_FRAMERATE, upsMatchFps, lambda);
+}
+
+void Window::run(uint64_t frames, bool upsMatchFps, const std::function<void(void)>& lambda) {
     // Remove context to set window in thread
     glfwMakeContextCurrent(nullptr);
     if (frames == 0) {
@@ -224,7 +272,7 @@ void Window::run(uint64_t frames, bool upsMatchFps) {
     s_windows.emplace_back(this);
     
     // Put onto thread
-    std::thread t(&Window::showWindow, this, upsMatchFps);
+    std::thread t(&Window::loop, this, upsMatchFps, lambda);
     t.detach();
 }
 
@@ -236,18 +284,16 @@ bool Window::hasFrameTimePassed(bool upsMatchFps) {
     
     // Sleeps and return true so the Updates per Second match the Frames per Second
     if (upsMatchFps) {
-        // TODO - fix this being slightly too slow (allows ~59 cycles per minute at 60ups, not close enough to 59.9)
-        uint64_t current = std::chrono::nanoseconds(std::chrono::system_clock::now().time_since_epoch()).count();
-        uint64_t delta = current - m_prevTime;
-        delta -= m_frameTime;
+        uint64_t current = GET_CURRENT_TIME();
+        int64_t delta = static_cast<int64_t>((current - m_prevTime) - m_frameTime);
+        
         std::this_thread::sleep_for(std::chrono::nanoseconds(m_frameTime - delta));
-
-        m_prevTime = current;
+        m_prevTime = current - delta;
         return true;
     }
 
     // UPS can be anything, so no sleep
-    uint64_t current = std::chrono::nanoseconds(std::chrono::system_clock::now().time_since_epoch()).count();
+    uint64_t current = GET_CURRENT_TIME();
     if (current > m_prevTime && m_frameTime <= (current - m_prevTime)) {
         // Updates the previous time based on current, previous, and frametime
         // current - previous = elapsed time
@@ -269,53 +315,42 @@ void Window::render(bool upsMatchFps) {
     glClear(GL_COLOR_BUFFER_BIT);
     
     // Render objects
-    for (Renderable* obj : this->m_renderObjects) {
-        obj->Render();
+    for (Renderable& obj : m_renderObjects) {
+        obj.render();
     }
 
     glfwSwapBuffers(this->m_window);
-}
-
-void Window::checkSizeChange() {
-    // Prevent invalid read
-    m_sizeLock.lock();
-    
-    if (m_sizeChanged) {
-        // Size changes, update values
-        glfwSetWindowSize(m_window, m_width, m_height);
-        glViewport(0, 0, m_width, m_height);
-        m_sizeChanged = false;
-    }
-    m_sizeLock.unlock();
-}
-
-void Window::checkChanges() {
-    // Checks for size change
-    checkSizeChange();
 }
 
 bool Window::shouldClose() {
     // If this is the main window, check if its closed
     if (s_mainWindow != nullptr && this->m_window == s_mainWindow) {
         s_forceClose = glfwWindowShouldClose(this->m_window);
+        if (s_forceClose) {
+            s_mainWindow = nullptr;
+        }
         return s_forceClose;
     }
     
     return glfwWindowShouldClose(this->m_window);
 }
 
-void Window::showWindow(bool upsMatchFps) {
+void Window::loop(bool upsMatchFps, const std::function<void(void)>& lambda) {
     std::println("Thread made on {}", std::this_thread::get_id());
+    m_prevTime = GET_CURRENT_TIME();
     
     // Set window on this thread
     glfwMakeContextCurrent(this->m_window);
     
     // Loop while window is open
     while (!this->shouldClose() && !s_forceClose) {
-        // Check for any changes to window
-        this->checkChanges();
+        // Run user lambda
+        lambda();
 
-        // Render object
+        // Check for updates
+        checkUpdates();
+        
+        // Render objects
         this->render(upsMatchFps);
     }
     
@@ -323,5 +358,14 @@ void Window::showWindow(bool upsMatchFps) {
     glfwMakeContextCurrent(nullptr);
     std::println("Thread ended on {}", std::this_thread::get_id());
     m_closed = true;
+}
+
+void Window::checkUpdates() {
+    if (m_resized) {
+        m_resizedMutex.lock();
+        m_resized = false;
+        glViewport(0, 0, m_width, m_height);
+        m_resizedMutex.unlock();
+    }
 }
 
